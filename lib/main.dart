@@ -12,7 +12,7 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:share_plus/share_plus.dart';
 
-// ==================== ابزارهای تاریخ ====================
+// ==================== ابزارهای تاریخ و خوش‌آمدگویی ====================
 
 List<int> _gregorianToJalali(int gy, int gm, int gd) {
   const gDaysInMonth = <int>[
@@ -136,7 +136,18 @@ String _displayPrice(int price) {
   return '${_formatPrice(price)} ریال';
 }
 
-// ==================== شروع برنامه با Splash Screen ====================
+// ==================== تابع بارگذاری فونت برای PDF ====================
+
+Future<pw.Font> _loadFont() async {
+  try {
+    final fontData = await rootBundle.load('assets/fonts/Vazir.ttf');
+    return pw.Font.ttf(fontData.buffer.asByteData());
+  } catch (e) {
+    return pw.Font.helvetica();
+  }
+}
+
+// ==================== شروع برنامه ====================
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -178,6 +189,13 @@ class _DeliveryAppState extends State<DeliveryApp> {
           seedColor: Colors.green,
           brightness: Brightness.light,
         ),
+        textTheme: const TextTheme(
+          bodyLarge: TextStyle(fontFamily: 'Vazir'),
+          bodyMedium: TextStyle(fontFamily: 'Vazir'),
+          titleLarge: TextStyle(fontFamily: 'Vazir'),
+          titleMedium: TextStyle(fontFamily: 'Vazir'),
+          labelLarge: TextStyle(fontFamily: 'Vazir'),
+        ),
         appBarTheme: const AppBarTheme(
           elevation: 0,
           centerTitle: true,
@@ -191,6 +209,13 @@ class _DeliveryAppState extends State<DeliveryApp> {
       ),
       darkTheme: ThemeData.dark().copyWith(
         primaryColor: Colors.green,
+        textTheme: const TextTheme(
+          bodyLarge: TextStyle(fontFamily: 'Vazir'),
+          bodyMedium: TextStyle(fontFamily: 'Vazir'),
+          titleLarge: TextStyle(fontFamily: 'Vazir'),
+          titleMedium: TextStyle(fontFamily: 'Vazir'),
+          labelLarge: TextStyle(fontFamily: 'Vazir'),
+        ),
         appBarTheme: const AppBarTheme(
           elevation: 0,
           centerTitle: true,
@@ -546,7 +571,6 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 }
 
-// ==================== ادامه کد (DeliveryScreen و بقیه کلاس‌ها) در پاسخ بعدی ====================
 // ==================== صفحه اصلی برنامه ====================
 
 class DeliveryScreen extends StatefulWidget {
@@ -575,6 +599,9 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
   final _formKey = GlobalKey<FormState>();
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
+  // ==================== FocusNode برای مدیریت کیبورد ====================
+  final FocusNode _searchFocusNode = FocusNode();
+
   bool _isSearching = false;
   String _selectedUnit = 'عدد';
   bool _isLoading = false;
@@ -602,7 +629,13 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
     _searchController.dispose();
     _barcodeController.dispose();
     _packageSizeController.dispose();
+    _searchFocusNode.dispose();
     super.dispose();
+  }
+
+  // ==================== تابع بستن کیبورد ====================
+  void _closeKeyboard() {
+    FocusScope.of(context).unfocus();
   }
 
   Future<void> _loadSettings() async {
@@ -638,6 +671,7 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
 
   Future<void> _scanBarcode({bool forSearchOnly = false}) async {
     try {
+      _closeKeyboard();
       final result = await Navigator.push<String>(
         context,
         MaterialPageRoute(
@@ -678,6 +712,7 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
   }
 
   void _showBarcodeSearchResultDialog(String barcode) {
+    _closeKeyboard();
     final matches =
         _productDatabase.where((p) => p.barcode == barcode).toList();
 
@@ -730,6 +765,7 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
                           label: const Text('فروش این کالا'),
                           onPressed: () {
                             Navigator.pop(context);
+                            _openSalesInvoicesScreen();
                             _showSalesDialog(
                               productName: item.name,
                               productBarcode: item.barcode,
@@ -744,7 +780,10 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
               ),
         actions: [
           ElevatedButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () {
+              _closeKeyboard();
+              Navigator.pop(context);
+            },
             child: const Text('بستن'),
           ),
         ],
@@ -799,6 +838,7 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
   }
 
   void _openManifestScreen() {
+    _closeKeyboard();
     Navigator.push(
       context,
       _slideRoute(
@@ -815,6 +855,7 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
   }
 
   void _viewManifestDetails(DeliveryManifest manifest) {
+    _closeKeyboard();
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -915,7 +956,10 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () {
+              _closeKeyboard();
+              Navigator.pop(context);
+            },
             child: const Text('بستن'),
           ),
           ElevatedButton.icon(
@@ -931,10 +975,12 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
     );
   }
 
-  // ==================== اشتراک‌گذاری بارنامه با PDF اصلاح‌شده ====================
+  // ==================== اشتراک‌گذاری بارنامه با PDF ====================
 
   Future<void> _shareManifestReport(DeliveryManifest manifest) async {
     try {
+      _closeKeyboard();
+      final font = await _loadFont();
       final pdf = pw.Document();
 
       pdf.addPage(
@@ -951,6 +997,7 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
                       fontSize: 28,
                       fontWeight: pw.FontWeight.bold,
                       color: PdfColors.blue,
+                      font: font,
                     ),
                   ),
                 ),
@@ -967,32 +1014,35 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
                       pw.Row(
                         children: [
                           pw.Text('📅 تاریخ:',
-                              style:
-                                  pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                              style: pw.TextStyle(
+                                  fontWeight: pw.FontWeight.bold, font: font)),
                           pw.SizedBox(width: 8),
-                          pw.Text(manifest.date),
+                          pw.Text(manifest.date,
+                              style: pw.TextStyle(font: font)),
                         ],
                       ),
                       pw.SizedBox(height: 4),
                       pw.Row(
                         children: [
                           pw.Text('📋 تعداد کالاها:',
-                              style:
-                                  pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                              style: pw.TextStyle(
+                                  fontWeight: pw.FontWeight.bold, font: font)),
                           pw.SizedBox(width: 8),
-                          pw.Text('${manifest.items.length}'),
+                          pw.Text('${manifest.items.length}',
+                              style: pw.TextStyle(font: font)),
                         ],
                       ),
                       pw.Row(
                         children: [
                           pw.Text('💰 مجموع قیمت:',
-                              style:
-                                  pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                              style: pw.TextStyle(
+                                  fontWeight: pw.FontWeight.bold, font: font)),
                           pw.SizedBox(width: 8),
                           pw.Text('${_formatPrice(manifest.totalPrice)} ریال',
                               style: pw.TextStyle(
                                   color: PdfColors.green,
-                                  fontWeight: pw.FontWeight.bold)),
+                                  fontWeight: pw.FontWeight.bold,
+                                  font: font)),
                         ],
                       ),
                     ],
@@ -1004,6 +1054,7 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
                   style: pw.TextStyle(
                     fontSize: 18,
                     fontWeight: pw.FontWeight.bold,
+                    font: font,
                   ),
                 ),
                 pw.SizedBox(height: 10),
@@ -1019,26 +1070,26 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
                         pw.Padding(
                           padding: const pw.EdgeInsets.all(10),
                           child: pw.Text('ردیف',
-                              style:
-                                  pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                              style: pw.TextStyle(
+                                  fontWeight: pw.FontWeight.bold, font: font)),
                         ),
                         pw.Padding(
                           padding: const pw.EdgeInsets.all(10),
                           child: pw.Text('نام کالا',
-                              style:
-                                  pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                              style: pw.TextStyle(
+                                  fontWeight: pw.FontWeight.bold, font: font)),
                         ),
                         pw.Padding(
                           padding: const pw.EdgeInsets.all(10),
                           child: pw.Text('تعداد',
-                              style:
-                                  pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                              style: pw.TextStyle(
+                                  fontWeight: pw.FontWeight.bold, font: font)),
                         ),
                         pw.Padding(
                           padding: const pw.EdgeInsets.all(10),
                           child: pw.Text('قیمت',
-                              style:
-                                  pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                              style: pw.TextStyle(
+                                  fontWeight: pw.FontWeight.bold, font: font)),
                         ),
                       ],
                     ),
@@ -1049,20 +1100,24 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
                         children: [
                           pw.Padding(
                             padding: const pw.EdgeInsets.all(10),
-                            child: pw.Text('$index'),
+                            child: pw.Text('$index',
+                                style: pw.TextStyle(font: font)),
                           ),
                           pw.Padding(
                             padding: const pw.EdgeInsets.all(10),
-                            child: pw.Text(item.name),
+                            child: pw.Text(item.name,
+                                style: pw.TextStyle(font: font)),
                           ),
                           pw.Padding(
                             padding: const pw.EdgeInsets.all(10),
-                            child: pw.Text('${item.quantity} ${item.unit}'),
+                            child: pw.Text('${item.quantity} ${item.unit}',
+                                style: pw.TextStyle(font: font)),
                           ),
                           pw.Padding(
                             padding: const pw.EdgeInsets.all(10),
                             child: pw.Text(
-                                '${_formatPrice(item.purchasePrice)} ریال'),
+                                '${_formatPrice(item.purchasePrice)} ریال',
+                                style: pw.TextStyle(font: font)),
                           ),
                         ],
                       );
@@ -1077,6 +1132,7 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
                     style: pw.TextStyle(
                       fontSize: 10,
                       color: PdfColors.grey,
+                      font: font,
                     ),
                   ),
                 ),
@@ -1102,7 +1158,7 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
     }
   }
 
-  // ==================== اشتراک‌گذاری گزارش فروش با PDF اصلاح‌شده ====================
+  // ==================== اشتراک‌گذاری گزارش فروش با PDF ====================
 
   Future<void> _shareSalesReport() async {
     if (_salesInvoices.isEmpty) {
@@ -1111,6 +1167,8 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
     }
 
     try {
+      _closeKeyboard();
+      final font = await _loadFont();
       final pdf = pw.Document();
 
       pdf.addPage(
@@ -1133,6 +1191,7 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
                       fontSize: 28,
                       fontWeight: pw.FontWeight.bold,
                       color: PdfColors.green,
+                      font: font,
                     ),
                   ),
                 ),
@@ -1149,36 +1208,39 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
                       pw.Row(
                         children: [
                           pw.Text('📊 تعداد فاکتورها:',
-                              style:
-                                  pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                              style: pw.TextStyle(
+                                  fontWeight: pw.FontWeight.bold, font: font)),
                           pw.SizedBox(width: 8),
-                          pw.Text('${_salesInvoices.length}'),
+                          pw.Text('${_salesInvoices.length}',
+                              style: pw.TextStyle(font: font)),
                         ],
                       ),
                       pw.SizedBox(height: 4),
                       pw.Row(
                         children: [
                           pw.Text('💰 مجموع فروش:',
-                              style:
-                                  pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                              style: pw.TextStyle(
+                                  fontWeight: pw.FontWeight.bold, font: font)),
                           pw.SizedBox(width: 8),
                           pw.Text('${_formatPrice(totalSales)} ریال',
                               style: pw.TextStyle(
                                   color: PdfColors.green,
-                                  fontWeight: pw.FontWeight.bold)),
+                                  fontWeight: pw.FontWeight.bold,
+                                  font: font)),
                         ],
                       ),
                       pw.SizedBox(height: 4),
                       pw.Row(
                         children: [
                           pw.Text('💳 مجموع نسیه:',
-                              style:
-                                  pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                              style: pw.TextStyle(
+                                  fontWeight: pw.FontWeight.bold, font: font)),
                           pw.SizedBox(width: 8),
                           pw.Text('${_formatPrice(totalCredit)} ریال',
                               style: pw.TextStyle(
                                   color: PdfColors.orange,
-                                  fontWeight: pw.FontWeight.bold)),
+                                  fontWeight: pw.FontWeight.bold,
+                                  font: font)),
                         ],
                       ),
                     ],
@@ -1190,6 +1252,7 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
                   style: pw.TextStyle(
                     fontSize: 18,
                     fontWeight: pw.FontWeight.bold,
+                    font: font,
                   ),
                 ),
                 pw.SizedBox(height: 10),
@@ -1203,40 +1266,40 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
                       ),
                       children: [
                         pw.Padding(
-                          padding: const pw.EdgeInsets.all(8),
+                          padding: const pw.EdgeInsets.all(10),
                           child: pw.Text('ردیف',
-                              style:
-                                  pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                              style: pw.TextStyle(
+                                  fontWeight: pw.FontWeight.bold, font: font)),
                         ),
                         pw.Padding(
-                          padding: const pw.EdgeInsets.all(8),
+                          padding: const pw.EdgeInsets.all(10),
                           child: pw.Text('شماره',
-                              style:
-                                  pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                              style: pw.TextStyle(
+                                  fontWeight: pw.FontWeight.bold, font: font)),
                         ),
                         pw.Padding(
-                          padding: const pw.EdgeInsets.all(8),
+                          padding: const pw.EdgeInsets.all(10),
                           child: pw.Text('کالا',
-                              style:
-                                  pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                              style: pw.TextStyle(
+                                  fontWeight: pw.FontWeight.bold, font: font)),
                         ),
                         pw.Padding(
-                          padding: const pw.EdgeInsets.all(8),
+                          padding: const pw.EdgeInsets.all(10),
                           child: pw.Text('تعداد',
-                              style:
-                                  pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                              style: pw.TextStyle(
+                                  fontWeight: pw.FontWeight.bold, font: font)),
                         ),
                         pw.Padding(
-                          padding: const pw.EdgeInsets.all(8),
+                          padding: const pw.EdgeInsets.all(10),
                           child: pw.Text('قیمت',
-                              style:
-                                  pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                              style: pw.TextStyle(
+                                  fontWeight: pw.FontWeight.bold, font: font)),
                         ),
                         pw.Padding(
-                          padding: const pw.EdgeInsets.all(8),
+                          padding: const pw.EdgeInsets.all(10),
                           child: pw.Text('مشتری',
-                              style:
-                                  pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                              style: pw.TextStyle(
+                                  fontWeight: pw.FontWeight.bold, font: font)),
                         ),
                       ],
                     ),
@@ -1246,31 +1309,38 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
                       return pw.TableRow(
                         children: [
                           pw.Padding(
-                            padding: const pw.EdgeInsets.all(8),
-                            child: pw.Text('$index'),
+                            padding: const pw.EdgeInsets.all(10),
+                            child: pw.Text('$index',
+                                style: pw.TextStyle(font: font)),
                           ),
                           pw.Padding(
-                            padding: const pw.EdgeInsets.all(8),
-                            child: pw.Text('${inv.number}'),
+                            padding: const pw.EdgeInsets.all(10),
+                            child: pw.Text('${inv.number}',
+                                style: pw.TextStyle(font: font)),
                           ),
                           pw.Padding(
-                            padding: const pw.EdgeInsets.all(8),
-                            child: pw.Text(inv.productName),
+                            padding: const pw.EdgeInsets.all(10),
+                            child: pw.Text(inv.productName,
+                                style: pw.TextStyle(font: font)),
                           ),
                           pw.Padding(
-                            padding: const pw.EdgeInsets.all(8),
-                            child: pw.Text('${inv.quantity}'),
+                            padding: const pw.EdgeInsets.all(10),
+                            child: pw.Text('${inv.quantity}',
+                                style: pw.TextStyle(font: font)),
                           ),
                           pw.Padding(
-                            padding: const pw.EdgeInsets.all(8),
-                            child:
-                                pw.Text('${_formatPrice(inv.totalPrice)} ریال'),
+                            padding: const pw.EdgeInsets.all(10),
+                            child: pw.Text(
+                                '${_formatPrice(inv.totalPrice)} ریال',
+                                style: pw.TextStyle(font: font)),
                           ),
                           pw.Padding(
-                            padding: const pw.EdgeInsets.all(8),
-                            child: pw.Text(inv.customerName.isEmpty
-                                ? 'نقدی'
-                                : inv.customerName),
+                            padding: const pw.EdgeInsets.all(10),
+                            child: pw.Text(
+                                inv.customerName.isEmpty
+                                    ? 'نقدی'
+                                    : inv.customerName,
+                                style: pw.TextStyle(font: font)),
                           ),
                         ],
                       );
@@ -1285,6 +1355,7 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
                     style: pw.TextStyle(
                       fontSize: 10,
                       color: PdfColors.grey,
+                      font: font,
                     ),
                   ),
                 ),
@@ -1309,9 +1380,8 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
     }
   }
 
-  // ==================== ادامه بقیه متدها ====================
-
   void _viewInvoiceDetails(SalesInvoice invoice) {
+    _closeKeyboard();
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -1446,7 +1516,10 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () {
+              _closeKeyboard();
+              Navigator.pop(context);
+            },
             child: const Text('بستن'),
           ),
           ElevatedButton.icon(
@@ -1464,6 +1537,8 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
 
   Future<void> _printInvoice(SalesInvoice invoice) async {
     try {
+      _closeKeyboard();
+      final font = await _loadFont();
       final pdf = pw.Document();
 
       pdf.addPage(
@@ -1480,6 +1555,7 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
                       fontSize: 28,
                       fontWeight: pw.FontWeight.bold,
                       color: PdfColors.green,
+                      font: font,
                     ),
                   ),
                 ),
@@ -1496,53 +1572,58 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
                       pw.Row(
                         children: [
                           pw.Text('📅 تاریخ:',
-                              style:
-                                  pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                              style: pw.TextStyle(
+                                  fontWeight: pw.FontWeight.bold, font: font)),
                           pw.SizedBox(width: 8),
-                          pw.Text(invoice.date),
+                          pw.Text(invoice.date,
+                              style: pw.TextStyle(font: font)),
                         ],
                       ),
                       pw.SizedBox(height: 4),
                       pw.Row(
                         children: [
                           pw.Text('🏷️ کالا:',
-                              style:
-                                  pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                              style: pw.TextStyle(
+                                  fontWeight: pw.FontWeight.bold, font: font)),
                           pw.SizedBox(width: 8),
-                          pw.Text(invoice.productName),
+                          pw.Text(invoice.productName,
+                              style: pw.TextStyle(font: font)),
                         ],
                       ),
                       pw.SizedBox(height: 4),
                       pw.Row(
                         children: [
                           pw.Text('📊 تعداد:',
-                              style:
-                                  pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                              style: pw.TextStyle(
+                                  fontWeight: pw.FontWeight.bold, font: font)),
                           pw.SizedBox(width: 8),
-                          pw.Text('${invoice.quantity}'),
+                          pw.Text('${invoice.quantity}',
+                              style: pw.TextStyle(font: font)),
                         ],
                       ),
                       pw.SizedBox(height: 4),
                       pw.Row(
                         children: [
                           pw.Text('💰 قیمت واحد:',
-                              style:
-                                  pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                              style: pw.TextStyle(
+                                  fontWeight: pw.FontWeight.bold, font: font)),
                           pw.SizedBox(width: 8),
-                          pw.Text('${_formatPrice(invoice.price)} ریال'),
+                          pw.Text('${_formatPrice(invoice.price)} ریال',
+                              style: pw.TextStyle(font: font)),
                         ],
                       ),
                       pw.SizedBox(height: 4),
                       pw.Row(
                         children: [
                           pw.Text('💵 مجموع:',
-                              style:
-                                  pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                              style: pw.TextStyle(
+                                  fontWeight: pw.FontWeight.bold, font: font)),
                           pw.SizedBox(width: 8),
                           pw.Text('${_formatPrice(invoice.totalPrice)} ریال',
                               style: pw.TextStyle(
                                   color: PdfColors.green,
-                                  fontWeight: pw.FontWeight.bold)),
+                                  fontWeight: pw.FontWeight.bold,
+                                  font: font)),
                         ],
                       ),
                       if (invoice.isCredit) ...[
@@ -1551,9 +1632,11 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
                           children: [
                             pw.Text('👤 مشتری:',
                                 style: pw.TextStyle(
-                                    fontWeight: pw.FontWeight.bold)),
+                                    fontWeight: pw.FontWeight.bold,
+                                    font: font)),
                             pw.SizedBox(width: 8),
-                            pw.Text(invoice.customerName),
+                            pw.Text(invoice.customerName,
+                                style: pw.TextStyle(font: font)),
                           ],
                         ),
                         pw.SizedBox(height: 4),
@@ -1561,9 +1644,11 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
                           children: [
                             pw.Text('📱 موبایل:',
                                 style: pw.TextStyle(
-                                    fontWeight: pw.FontWeight.bold)),
+                                    fontWeight: pw.FontWeight.bold,
+                                    font: font)),
                             pw.SizedBox(width: 8),
-                            pw.Text(invoice.customerPhone),
+                            pw.Text(invoice.customerPhone,
+                                style: pw.TextStyle(font: font)),
                           ],
                         ),
                       ],
@@ -1571,10 +1656,11 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
                       pw.Row(
                         children: [
                           pw.Text('💳 نوع:',
-                              style:
-                                  pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                              style: pw.TextStyle(
+                                  fontWeight: pw.FontWeight.bold, font: font)),
                           pw.SizedBox(width: 8),
-                          pw.Text(invoice.isCredit ? 'نسیه' : 'نقدی'),
+                          pw.Text(invoice.isCredit ? 'نسیه' : 'نقدی',
+                              style: pw.TextStyle(font: font)),
                         ],
                       ),
                     ],
@@ -1588,6 +1674,7 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
                     style: pw.TextStyle(
                       fontSize: 10,
                       color: PdfColors.grey,
+                      font: font,
                     ),
                   ),
                 ),
@@ -1609,6 +1696,7 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
   }
 
   void _openSalesInvoicesScreen() {
+    _closeKeyboard();
     Navigator.push(
       context,
       _slideRoute(
@@ -1659,6 +1747,7 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
     String? productBarcode,
     int? sellPrice,
   }) async {
+    _closeKeyboard();
     final customerNameCtrl = TextEditingController();
     final customerPhoneCtrl = TextEditingController();
     final searchCtrl = TextEditingController();
@@ -1814,6 +1903,7 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
                             tooltip: 'اسکن بارکد با دوربین',
                             icon: const Icon(Icons.qr_code_scanner),
                             onPressed: () async {
+                              _closeKeyboard();
                               final result = await Navigator.push<String>(
                                 context,
                                 MaterialPageRoute(
@@ -1931,6 +2021,7 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
                               onPressed: selected.isEmpty
                                   ? null
                                   : () {
+                                      _closeKeyboard();
                                       if (isCredit &&
                                           (customerNameCtrl.text
                                                   .trim()
@@ -2013,6 +2104,7 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
   }
 
   void _openProductDatabaseScreen() {
+    _closeKeyboard();
     Navigator.push(
       context,
       _slideRoute(
@@ -2025,16 +2117,25 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
             _saveProductDatabase();
             _addSmartLog('🔄 بانک اطلاعاتی کالاها به‌روزرسانی شد');
           },
+          onItemDeleted: (barcode) {
+            setState(() {
+              _productDatabase.removeWhere((item) => item.barcode == barcode);
+            });
+            _saveProductDatabase();
+            _addSmartLog('🗑️ کالا از بانک اطلاعاتی حذف شد');
+          },
         ),
       ),
     );
   }
 
   void _openSettingsScreen() {
+    _closeKeyboard();
     _scaffoldKey.currentState?.openEndDrawer();
   }
 
   void _openSettingsPageFromDrawer() {
+    _closeKeyboard();
     Navigator.pop(context);
     Future.delayed(const Duration(milliseconds: 220), () {
       if (!mounted) return;
@@ -2141,6 +2242,7 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
   }
 
   void _clearSmartLogs() {
+    _closeKeyboard();
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -2244,6 +2346,7 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
   }
 
   void _submitDelivery() async {
+    _closeKeyboard();
     final TextEditingController dateController = TextEditingController();
     dateController.text = _getTodayDate();
 
@@ -2396,6 +2499,7 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
   }
 
   void _startEditingManifest(DeliveryManifest manifest) {
+    _closeKeyboard();
     final dateController = TextEditingController(text: manifest.date);
 
     showDialog(
@@ -2505,6 +2609,7 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
         actions: [
           TextButton(
             onPressed: () {
+              _closeKeyboard();
               Navigator.pop(context);
             },
             child: const Text('انصراف'),
@@ -2549,6 +2654,7 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
   }
 
   Future<void> _deleteManifest(DeliveryManifest manifest) async {
+    _closeKeyboard();
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -2616,6 +2722,7 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
   }
 
   void _cancelDelivery() {
+    _closeKeyboard();
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -2658,6 +2765,7 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
 
   Future<void> _showAddDialog({DeliveryManifest? targetManifest}) async {
     _clearControllers();
+    _closeKeyboard();
 
     await showDialog<void>(
       context: context,
@@ -2966,6 +3074,7 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
                               icon: const Icon(Icons.shopping_cart, size: 16),
                               label: const Text('فروش'),
                               onPressed: () {
+                                _openSalesInvoicesScreen();
                                 _showSalesDialog(
                                   productName: dbItem.name,
                                   productBarcode: dbItem.barcode,
@@ -3050,6 +3159,7 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
             icon: const Icon(Icons.shopping_cart, size: 16),
             label: const Text('فروش'),
             onPressed: () {
+              _openSalesInvoicesScreen();
               _showSalesDialog(
                 productName: item.name,
                 productBarcode: item.barcode,
@@ -3103,6 +3213,7 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
             icon: const Icon(Icons.shopping_cart, size: 16),
             label: const Text('فروش'),
             onPressed: () {
+              _openSalesInvoicesScreen();
               _showSalesDialog(
                 productName: item.name,
                 productBarcode: item.barcode,
@@ -3122,307 +3233,307 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
     final greeting = _greetingByHour(now.hour);
     final dateText = _todayJalaliLong();
 
-    return RefreshIndicator(
-      onRefresh: () async {
-        await _loadSavedManifests();
-        await _loadProductDatabase();
-        await _loadSalesInvoices();
-        await _loadSmartLogs();
-      },
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
-        children: [
-          // ==================== هدر جدید با عکس و تاریخ ====================
-          Container(
-            padding: const EdgeInsets.fromLTRB(18, 18, 18, 20),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  Colors.green.shade700,
-                  Colors.green.shade500,
-                ],
-                begin: Alignment.topRight,
-                end: Alignment.bottomLeft,
-              ),
-              borderRadius: BorderRadius.circular(24),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.green.shade300.withOpacity(.3),
-                  blurRadius: 18,
-                  offset: const Offset(0, 8),
-                ),
-              ],
-            ),
-            child: Row(
-              children: [
-                // ==================== عکس فروشگاه ====================
-                Container(
-                  width: 65,
-                  height: 65,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: Colors.white.withOpacity(0.5),
-                      width: 2,
-                    ),
-                    image: const DecorationImage(
-                      image:
-                          AssetImage('assets/images/Logopit_1787568628075.png'),
-                      fit: BoxFit.cover,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 14),
-                // ==================== اطلاعات کاربر ====================
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '$greeting ${_userName.isEmpty ? 'کاربر عزیز' : _userName}',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        dateText,
-                        style: TextStyle(
-                          color: Colors.white.withOpacity(.90),
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        'مدیریت فروش، بارنامه و موجودی',
-                        style: TextStyle(
-                          color: Colors.white.withOpacity(.75),
-                          fontSize: 11,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 16),
-
-          // ==================== جستجو ====================
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _searchController,
-                  decoration: InputDecoration(
-                    labelText: 'جستجو در کالاها و بارنامه‌ها',
-                    hintText: 'نام کالا یا بارکد...',
-                    prefixIcon: const Icon(Icons.search),
-                    suffixIcon: _searchController.text.isNotEmpty
-                        ? IconButton(
-                            icon: const Icon(Icons.clear),
-                            onPressed: () {
-                              _searchController.clear();
-                              setState(() {
-                                _isSearching = false;
-                                _filteredItems.clear();
-                                _manifestSearchResults.clear();
-                              });
-                            },
-                          )
-                        : null,
-                    filled: true,
-                    fillColor: Theme.of(context).colorScheme.surface,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      borderSide: BorderSide.none,
-                    ),
-                  ),
-                  onChanged: _searchItems,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.green.shade700,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: IconButton(
-                  icon: const Icon(Icons.qr_code_scanner, color: Colors.white),
-                  iconSize: 29,
-                  padding: const EdgeInsets.all(13),
-                  onPressed: () => _scanBarcode(forSearchOnly: true),
-                  tooltip: 'جستجو با اسکن بارکد',
-                ),
-              ),
-            ],
-          ),
-
-          if (_isSearching) ...[
-            const SizedBox(height: 12),
-            _buildSearchResults(),
-          ] else ...[
-            const SizedBox(height: 20),
-
-            // ==================== گزارش هوشمند ====================
-            Row(
-              children: [
-                const Icon(Icons.auto_awesome, size: 22),
-                const SizedBox(width: 8),
-                const Expanded(
-                  child: Text(
-                    'گزارش هوشمند',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                ),
-                if (_smartLogs.isNotEmpty)
-                  TextButton(
-                    onPressed: _clearSmartLogs,
-                    child: const Text('پاک کردن'),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 8),
+    return GestureDetector(
+      // ==================== با کلیک روی هر جای صفحه، کیبورد بسته شود ====================
+      onTap: _closeKeyboard,
+      child: RefreshIndicator(
+        onRefresh: () async {
+          await _loadSavedManifests();
+          await _loadProductDatabase();
+          await _loadSalesInvoices();
+          await _loadSmartLogs();
+        },
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
+          children: [
             Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(14),
+              padding: const EdgeInsets.fromLTRB(18, 18, 18, 20),
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(18),
+                gradient: LinearGradient(
+                  colors: [
+                    Colors.green.shade700,
+                    Colors.green.shade500,
+                  ],
+                  begin: Alignment.topRight,
+                  end: Alignment.bottomLeft,
+                ),
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.green.shade300.withOpacity(.3),
+                    blurRadius: 18,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
               ),
-              child: _smartLogs.isEmpty
-                  ? const Row(
+              child: Row(
+                children: [
+                  Container(
+                    width: 65,
+                    height: 65,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: Colors.white.withOpacity(0.5),
+                        width: 2,
+                      ),
+                      image: const DecorationImage(
+                        image: AssetImage(
+                            'assets/images/Logopit_1787568628075.png'),
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(Icons.insights_outlined, color: Colors.grey),
-                        SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            'هنوز گزارشی ثبت نشده؛ فعالیت‌های برنامه اینجا نمایش داده می‌شوند.',
-                            style: TextStyle(color: Colors.grey),
+                        Text(
+                          '$greeting ${_userName.isEmpty ? 'کاربر عزیز' : _userName}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          dateText,
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(.90),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'مدیریت فروش، بارنامه و موجودی',
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(.75),
+                            fontSize: 11,
                           ),
                         ),
                       ],
-                    )
-                  : Column(
-                      children: _smartLogs.take(4).map((log) {
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 4),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Icon(Icons.circle, size: 7),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  log,
-                                  style: const TextStyle(fontSize: 13),
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      }).toList(),
                     ),
+                  ),
+                ],
+              ),
             ),
 
-            const SizedBox(height: 22),
+            const SizedBox(height: 16),
 
-            // ==================== ابزارها ====================
-            const Text(
-              'ابزارها',
-              style: TextStyle(fontSize: 19, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 10),
-
-            GridView.count(
-              crossAxisCount: 2,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              mainAxisSpacing: 10,
-              crossAxisSpacing: 10,
-              childAspectRatio: 1.65,
+            // ==================== جستجو با FocusNode ====================
+            Row(
               children: [
-                _buildToolCard(
-                  icon: Icons.local_shipping_outlined,
-                  title: 'بارنامه',
-                  subtitle: 'ثبت و مدیریت بار',
-                  iconColor: Colors.blue,
-                  onTap: _openManifestScreen,
+                Expanded(
+                  child: TextField(
+                    controller: _searchController,
+                    focusNode: _searchFocusNode,
+                    decoration: InputDecoration(
+                      labelText: 'جستجو در کالاها و بارنامه‌ها',
+                      hintText: 'نام کالا یا بارکد...',
+                      prefixIcon: const Icon(Icons.search),
+                      suffixIcon: _searchController.text.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear),
+                              onPressed: () {
+                                _searchController.clear();
+                                _closeKeyboard();
+                                setState(() {
+                                  _isSearching = false;
+                                  _filteredItems.clear();
+                                  _manifestSearchResults.clear();
+                                });
+                              },
+                            )
+                          : null,
+                      filled: true,
+                      fillColor: Theme.of(context).colorScheme.surface,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                    onChanged: (value) {
+                      _searchItems(value);
+                    },
+                    onSubmitted: (value) {
+                      // وقتی کاربر Enter زد، کیبورد بسته شود
+                      _closeKeyboard();
+                    },
+                  ),
                 ),
-                _buildToolCard(
-                  icon: Icons.receipt_long_outlined,
-                  title: 'فروش',
-                  subtitle: 'فاکتورهای فروش',
-                  iconColor: Colors.green,
-                  onTap: _openSalesInvoicesScreen,
-                ),
-                _buildToolCard(
-                  icon: Icons.inventory_2_outlined,
-                  title: 'بانک اطلاعاتی',
-                  subtitle: 'کالاها و پوشه‌ها',
-                  iconColor: Colors.deepPurple,
-                  onTap: _openProductDatabaseScreen,
-                ),
-                _buildToolCard(
-                  icon: Icons.share_outlined,
-                  title: 'اشتراک گزارش',
-                  subtitle: 'گزارش فروش و بارنامه',
-                  iconColor: Colors.orange,
-                  onTap: _shareSalesReport,
-                ),
-                _buildToolCard(
-                  icon: Icons.settings_outlined,
-                  title: 'تنظیمات',
-                  subtitle: 'پروفایل و ظاهر',
-                  iconColor: Colors.grey,
-                  onTap: _openSettingsScreen,
+                const SizedBox(width: 8),
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.green.shade700,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: IconButton(
+                    icon:
+                        const Icon(Icons.qr_code_scanner, color: Colors.white),
+                    iconSize: 29,
+                    padding: const EdgeInsets.all(13),
+                    onPressed: () => _scanBarcode(forSearchOnly: true),
+                    tooltip: 'جستجو با اسکن بارکد',
+                  ),
                 ),
               ],
             ),
 
-            const SizedBox(height: 22),
-
-            // ==================== محموله جاری (اگر کالا وجود داشته باشد) ====================
-            if (_currentItems.isNotEmpty) ...[
+            if (_isSearching) ...[
+              const SizedBox(height: 12),
+              _buildSearchResults(),
+            ] else ...[
+              const SizedBox(height: 20),
               Row(
                 children: [
+                  const Icon(Icons.auto_awesome, size: 22),
+                  const SizedBox(width: 8),
                   const Expanded(
                     child: Text(
-                      'محموله جاری',
+                      'گزارش هوشمند',
                       style:
                           TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                     ),
                   ),
-                  TextButton.icon(
-                    onPressed: _submitDelivery,
-                    icon: const Icon(Icons.check_circle_outline),
-                    label: const Text('ثبت نهایی'),
+                  if (_smartLogs.isNotEmpty)
+                    TextButton(
+                      onPressed: _clearSmartLogs,
+                      child: const Text('پاک کردن'),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: _smartLogs.isEmpty
+                    ? const Row(
+                        children: [
+                          Icon(Icons.insights_outlined, color: Colors.grey),
+                          SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              'هنوز گزارشی ثبت نشده؛ فعالیت‌های برنامه اینجا نمایش داده می‌شوند.',
+                              style: TextStyle(color: Colors.grey),
+                            ),
+                          ),
+                        ],
+                      )
+                    : Column(
+                        children: _smartLogs.take(4).map((log) {
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Icon(Icons.circle, size: 7),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    log,
+                                    style: const TextStyle(fontSize: 13),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }).toList(),
+                      ),
+              ),
+              const SizedBox(height: 22),
+              const Text(
+                'ابزارها',
+                style: TextStyle(fontSize: 19, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 10),
+              GridView.count(
+                crossAxisCount: 2,
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                mainAxisSpacing: 10,
+                crossAxisSpacing: 10,
+                childAspectRatio: 1.65,
+                children: [
+                  _buildToolCard(
+                    icon: Icons.local_shipping_outlined,
+                    title: 'بارنامه',
+                    subtitle: 'ثبت و مدیریت بار',
+                    iconColor: Colors.blue,
+                    onTap: _openManifestScreen,
+                  ),
+                  _buildToolCard(
+                    icon: Icons.receipt_long_outlined,
+                    title: 'فروش',
+                    subtitle: 'فاکتورهای فروش',
+                    iconColor: Colors.green,
+                    onTap: _openSalesInvoicesScreen,
+                  ),
+                  _buildToolCard(
+                    icon: Icons.inventory_2_outlined,
+                    title: 'بانک اطلاعاتی',
+                    subtitle: 'کالاها و پوشه‌ها',
+                    iconColor: Colors.deepPurple,
+                    onTap: _openProductDatabaseScreen,
+                  ),
+                  _buildToolCard(
+                    icon: Icons.share_outlined,
+                    title: 'اشتراک گزارش',
+                    subtitle: 'گزارش فروش و بارنامه',
+                    iconColor: Colors.orange,
+                    onTap: _shareSalesReport,
+                  ),
+                  _buildToolCard(
+                    icon: Icons.settings_outlined,
+                    title: 'تنظیمات',
+                    subtitle: 'پروفایل و ظاهر',
+                    iconColor: Colors.grey,
+                    onTap: _openSettingsScreen,
                   ),
                 ],
               ),
-              ...List.generate(
-                _currentItems.length,
-                (index) => _buildItemCard(index),
-              ),
-            ],
-
-            const SizedBox(height: 10),
-
-            Center(
-              child: Text(
-                'توسعه‌دهنده: رضا قاسمی',
-                style: TextStyle(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  fontSize: 12,
+              const SizedBox(height: 22),
+              if (_currentItems.isNotEmpty) ...[
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'محموله جاری',
+                        style: TextStyle(
+                            fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    TextButton.icon(
+                      onPressed: _submitDelivery,
+                      icon: const Icon(Icons.check_circle_outline),
+                      label: const Text('ثبت نهایی'),
+                    ),
+                  ],
+                ),
+                ...List.generate(
+                  _currentItems.length,
+                  (index) => _buildItemCard(index),
+                ),
+              ],
+              const SizedBox(height: 10),
+              Center(
+                child: Text(
+                  'توسعه‌دهنده: رضا قاسمی',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    fontSize: 12,
+                  ),
                 ),
               ),
-            ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
@@ -3607,6 +3718,7 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
                   trailing: IconButton(
                     icon: const Icon(Icons.shopping_cart, color: Colors.green),
                     onPressed: () {
+                      _openSalesInvoicesScreen();
                       _showSalesDialog(
                         productName: item.name,
                         productBarcode: item.barcode,
@@ -3773,7 +3885,7 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
   }
 }
 
-// ==================== ادامه کد (ManifestScreen, SalesInvoicesScreen و ...) در پاسخ بعدی ====================
+// ==================== ادامه کد (ManifestScreen, SalesInvoicesScreen, SettingsScreen, ProductDatabaseScreen, BarcodeScannerScreen و مدل‌ها) در پاسخ بعدی ====================
 // ==================== صفحه اختصاصی بارنامه‌ها ====================
 
 class ManifestScreen extends StatefulWidget {
@@ -3815,7 +3927,12 @@ class _ManifestScreenState extends State<ManifestScreen> {
     }).toList();
   }
 
+  void _closeKeyboard() {
+    FocusScope.of(context).unfocus();
+  }
+
   Future<void> _showAddManifestDialog() async {
+    _closeKeyboard();
     final barcodeCtrl = TextEditingController();
     final nameCtrl = TextEditingController();
     final quantityCtrl = TextEditingController();
@@ -3911,6 +4028,7 @@ class _ManifestScreenState extends State<ManifestScreen> {
                                   icon: const Icon(Icons.camera_alt,
                                       color: Colors.white),
                                   onPressed: () async {
+                                    _closeKeyboard();
                                     final result = await Navigator.push<String>(
                                       context,
                                       MaterialPageRoute(
@@ -4152,6 +4270,7 @@ class _ManifestScreenState extends State<ManifestScreen> {
                               onPressed: tempItems.isEmpty
                                   ? null
                                   : () {
+                                      _closeKeyboard();
                                       final manifestNumber =
                                           widget.manifests.length + 1;
 
@@ -4243,172 +4362,190 @@ class _ManifestScreenState extends State<ManifestScreen> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: TextField(
-              decoration: InputDecoration(
-                labelText: '🔍 جستجو در بارنامه‌ها',
-                hintText: 'شماره، تاریخ، نام کالا یا بارکد',
-                prefixIcon: const Icon(Icons.search),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
+      body: GestureDetector(
+        onTap: _closeKeyboard,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: TextField(
+                decoration: InputDecoration(
+                  labelText: '🔍 جستجو در بارنامه‌ها',
+                  hintText: 'شماره، تاریخ، نام کالا یا بارکد',
+                  prefixIcon: const Icon(Icons.search),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
                 ),
+                onChanged: (value) => setState(() => _searchQuery = value),
+                onSubmitted: (_) => _closeKeyboard(),
               ),
-              onChanged: (value) => setState(() => _searchQuery = value),
             ),
-          ),
-          Expanded(
-            child: manifests.isEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: const [
-                        Icon(Icons.local_shipping_outlined,
-                            size: 72, color: Colors.grey),
-                        SizedBox(height: 12),
-                        Text('هنوز بارنامه‌ای ثبت نشده',
-                            style: TextStyle(
-                                fontSize: 17, fontWeight: FontWeight.bold)),
-                        SizedBox(height: 6),
-                        Text('برای شروع، «بارنامه جدید» را بزنید.'),
-                      ],
-                    ),
-                  )
-                : ListView.builder(
-                    padding: const EdgeInsets.fromLTRB(12, 12, 12, 100),
-                    itemCount: manifests.length,
-                    itemBuilder: (context, index) {
-                      final m = manifests[index];
-                      final totalItems = m.items.length;
-                      return Card(
-                        margin: const EdgeInsets.only(bottom: 10),
-                        elevation: 2,
-                        child: InkWell(
-                          onTap: () => widget.onViewDetails(m),
-                          borderRadius: BorderRadius.circular(12),
-                          child: Padding(
-                            padding: const EdgeInsets.all(14),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    CircleAvatar(
-                                      backgroundColor: Colors.blue.shade100,
-                                      child: Text(
-                                        '${m.number}',
-                                        style: TextStyle(
-                                          color: Colors.blue.shade700,
-                                          fontWeight: FontWeight.bold,
+            Expanded(
+              child: manifests.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: const [
+                          Icon(Icons.local_shipping_outlined,
+                              size: 72, color: Colors.grey),
+                          SizedBox(height: 12),
+                          Text('هنوز بارنامه‌ای ثبت نشده',
+                              style: TextStyle(
+                                  fontSize: 17, fontWeight: FontWeight.bold)),
+                          SizedBox(height: 6),
+                          Text('برای شروع، «بارنامه جدید» را بزنید.'),
+                        ],
+                      ),
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.fromLTRB(12, 12, 12, 100),
+                      itemCount: manifests.length,
+                      itemBuilder: (context, index) {
+                        final m = manifests[index];
+                        final totalItems = m.items.length;
+                        return Card(
+                          margin: const EdgeInsets.only(bottom: 10),
+                          elevation: 2,
+                          child: InkWell(
+                            onTap: () {
+                              _closeKeyboard();
+                              widget.onViewDetails(m);
+                            },
+                            borderRadius: BorderRadius.circular(12),
+                            child: Padding(
+                              padding: const EdgeInsets.all(14),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      CircleAvatar(
+                                        backgroundColor: Colors.blue.shade100,
+                                        child: Text(
+                                          '${m.number}',
+                                          style: TextStyle(
+                                            color: Colors.blue.shade700,
+                                            fontWeight: FontWeight.bold,
+                                          ),
                                         ),
                                       ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            'بارنامه شماره ${m.number}',
-                                            style: const TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 16,
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              'بارنامه شماره ${m.number}',
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 16,
+                                              ),
                                             ),
-                                          ),
-                                          Text(
-                                            'تاریخ: ${m.date}',
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              color: Colors.grey.shade600,
+                                            Text(
+                                              'تاریخ: ${m.date}',
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                color: Colors.grey.shade600,
+                                              ),
                                             ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 10, vertical: 4),
-                                      decoration: BoxDecoration(
-                                        color: Colors.green.shade100,
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      child: Text(
-                                        '$totalItems کالا',
-                                        style: TextStyle(
-                                          color: Colors.green.shade700,
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.bold,
+                                          ],
                                         ),
                                       ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 8),
-                                Wrap(
-                                  spacing: 6,
-                                  runSpacing: 4,
-                                  children: m.items.take(3).map((item) {
-                                    return Container(
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 8, vertical: 2),
-                                      decoration: BoxDecoration(
-                                        color: Colors.grey.shade200,
-                                        borderRadius: BorderRadius.circular(8),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 10, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: Colors.green.shade100,
+                                          borderRadius:
+                                              BorderRadius.circular(12),
+                                        ),
+                                        child: Text(
+                                          '$totalItems کالا',
+                                          style: TextStyle(
+                                            color: Colors.green.shade700,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
                                       ),
-                                      child: Text(
-                                        item.name,
-                                        style: const TextStyle(fontSize: 12),
-                                      ),
-                                    );
-                                  }).toList(),
-                                ),
-                                if (m.items.length > 3)
-                                  Padding(
-                                    padding: const EdgeInsets.only(top: 4),
-                                    child: Text(
-                                      'و ${m.items.length - 3} کالای دیگر...',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        color: Colors.grey.shade500,
-                                      ),
-                                    ),
+                                    ],
                                   ),
-                                const SizedBox(height: 8),
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.end,
-                                  children: [
-                                    IconButton(
-                                      icon: const Icon(Icons.share_outlined,
-                                          size: 20, color: Colors.blue),
-                                      onPressed: () => widget.onShareReport(m),
-                                      tooltip: 'اشتراک‌گذاری',
+                                  const SizedBox(height: 8),
+                                  Wrap(
+                                    spacing: 6,
+                                    runSpacing: 4,
+                                    children: m.items.take(3).map((item) {
+                                      return Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 8, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: Colors.grey.shade200,
+                                          borderRadius:
+                                              BorderRadius.circular(8),
+                                        ),
+                                        child: Text(
+                                          item.name,
+                                          style: const TextStyle(fontSize: 12),
+                                        ),
+                                      );
+                                    }).toList(),
+                                  ),
+                                  if (m.items.length > 3)
+                                    Padding(
+                                      padding: const EdgeInsets.only(top: 4),
+                                      child: Text(
+                                        'و ${m.items.length - 3} کالای دیگر...',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: Colors.grey.shade500,
+                                        ),
+                                      ),
                                     ),
-                                    IconButton(
-                                      icon: const Icon(Icons.edit_outlined,
-                                          size: 20, color: Colors.orange),
-                                      onPressed: () => widget.onEdit(m),
-                                      tooltip: 'ویرایش',
-                                    ),
-                                    IconButton(
-                                      icon: const Icon(Icons.delete_outline,
-                                          size: 20, color: Colors.red),
-                                      onPressed: () => widget.onDelete(m),
-                                      tooltip: 'حذف',
-                                    ),
-                                  ],
-                                ),
-                              ],
+                                  const SizedBox(height: 8),
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.end,
+                                    children: [
+                                      IconButton(
+                                        icon: const Icon(Icons.share_outlined,
+                                            size: 20, color: Colors.blue),
+                                        onPressed: () {
+                                          _closeKeyboard();
+                                          widget.onShareReport(m);
+                                        },
+                                        tooltip: 'اشتراک‌گذاری',
+                                      ),
+                                      IconButton(
+                                        icon: const Icon(Icons.edit_outlined,
+                                            size: 20, color: Colors.orange),
+                                        onPressed: () {
+                                          _closeKeyboard();
+                                          widget.onEdit(m);
+                                        },
+                                        tooltip: 'ویرایش',
+                                      ),
+                                      IconButton(
+                                        icon: const Icon(Icons.delete_outline,
+                                            size: 20, color: Colors.red),
+                                        onPressed: () {
+                                          _closeKeyboard();
+                                          widget.onDelete(m);
+                                        },
+                                        tooltip: 'حذف',
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
-                        ),
-                      );
-                    },
-                  ),
-          ),
-        ],
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       floatingActionButton: FloatingActionButton.extended(
@@ -4423,6 +4560,8 @@ class _ManifestScreenState extends State<ManifestScreen> {
 
   Future<void> _shareAllManifests() async {
     try {
+      _closeKeyboard();
+      final font = await _loadFont();
       final pdf = pw.Document();
 
       pdf.addPage(
@@ -4443,6 +4582,7 @@ class _ManifestScreenState extends State<ManifestScreen> {
                       fontSize: 28,
                       fontWeight: pw.FontWeight.bold,
                       color: PdfColors.blue,
+                      font: font,
                     ),
                   ),
                 ),
@@ -4459,19 +4599,21 @@ class _ManifestScreenState extends State<ManifestScreen> {
                       pw.Row(
                         children: [
                           pw.Text('📋 تعداد بارنامه‌ها:',
-                              style:
-                                  pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                              style: pw.TextStyle(
+                                  fontWeight: pw.FontWeight.bold, font: font)),
                           pw.SizedBox(width: 8),
-                          pw.Text('$totalManifests'),
+                          pw.Text('$totalManifests',
+                              style: pw.TextStyle(font: font)),
                         ],
                       ),
                       pw.Row(
                         children: [
                           pw.Text('📦 تعداد کل کالاها:',
-                              style:
-                                  pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                              style: pw.TextStyle(
+                                  fontWeight: pw.FontWeight.bold, font: font)),
                           pw.SizedBox(width: 8),
-                          pw.Text('$totalItems'),
+                          pw.Text('$totalItems',
+                              style: pw.TextStyle(font: font)),
                         ],
                       ),
                     ],
@@ -4488,6 +4630,7 @@ class _ManifestScreenState extends State<ManifestScreen> {
                           fontSize: 16,
                           fontWeight: pw.FontWeight.bold,
                           color: PdfColors.blue,
+                          font: font,
                         ),
                       ),
                       pw.SizedBox(height: 5),
@@ -4495,7 +4638,8 @@ class _ManifestScreenState extends State<ManifestScreen> {
                         return pw.Padding(
                           padding: const pw.EdgeInsets.only(right: 10),
                           child: pw.Text(
-                              '• ${item.name} (${item.quantity} ${item.unit})'),
+                              '• ${item.name} (${item.quantity} ${item.unit})',
+                              style: pw.TextStyle(font: font)),
                         );
                       }),
                       pw.SizedBox(height: 10),
@@ -4511,6 +4655,7 @@ class _ManifestScreenState extends State<ManifestScreen> {
                     style: pw.TextStyle(
                       fontSize: 10,
                       color: PdfColors.grey,
+                      font: font,
                     ),
                   ),
                 ),
@@ -4542,6 +4687,7 @@ class _ManifestScreenState extends State<ManifestScreen> {
   }
 }
 
+// ==================== ادامه کد (SalesInvoicesScreen, SettingsScreen, ProductDatabaseScreen, BarcodeScannerScreen و مدل‌ها) در پاسخ بعدی ====================
 // ==================== صفحه فاکتورهای فروش ====================
 
 class SalesInvoicesScreen extends StatefulWidget {
@@ -4575,6 +4721,10 @@ class _SalesInvoicesScreenState extends State<SalesInvoicesScreen> {
     _invoices = List.from(widget.invoices);
   }
 
+  void _closeKeyboard() {
+    FocusScope.of(context).unfocus();
+  }
+
   List<SalesInvoice> _filteredLines() {
     var filtered = List<SalesInvoice>.from(_invoices);
     if (_showOnlyCredit) {
@@ -4603,6 +4753,7 @@ class _SalesInvoicesScreenState extends State<SalesInvoicesScreen> {
   }
 
   Future<void> _deleteInvoiceGroup(int number, List<SalesInvoice> group) async {
+    _closeKeyboard();
     final ok = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -4661,215 +4812,229 @@ class _SalesInvoicesScreenState extends State<SalesInvoicesScreen> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    decoration: InputDecoration(
-                      labelText: '🔍 جستجو در فاکتورها',
-                      hintText: 'نام کالا، بارکد، مشتری یا شماره فاکتور',
-                      prefixIcon: const Icon(Icons.search),
-                      border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14)),
+      body: GestureDetector(
+        onTap: _closeKeyboard,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      decoration: InputDecoration(
+                        labelText: '🔍 جستجو در فاکتورها',
+                        hintText: 'نام کالا، بارکد، مشتری یا شماره فاکتور',
+                        prefixIcon: const Icon(Icons.search),
+                        border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14)),
+                      ),
+                      onChanged: (value) =>
+                          setState(() => _searchQuery = value),
+                      onSubmitted: (_) => _closeKeyboard(),
                     ),
-                    onChanged: (value) => setState(() => _searchQuery = value),
                   ),
-                ),
-                const SizedBox(width: 8),
-                FilterChip(
-                  label: const Text('نسیه'),
-                  selected: _showOnlyCredit,
-                  onSelected: (value) =>
-                      setState(() => _showOnlyCredit = value),
-                ),
-              ],
+                  const SizedBox(width: 8),
+                  FilterChip(
+                    label: const Text('نسیه'),
+                    selected: _showOnlyCredit,
+                    onSelected: (value) =>
+                        setState(() => _showOnlyCredit = value),
+                  ),
+                ],
+              ),
             ),
-          ),
-          Container(
-            margin: const EdgeInsets.symmetric(horizontal: 12),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(16),
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _summary('تعداد فاکتور', '${groups.length}'),
+                  _summary('مجموع فروش', _displayPrice(totalSales)),
+                  _summary('مجموع نسیه', _displayPrice(totalCredit),
+                      danger: true),
+                ],
+              ),
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _summary('تعداد فاکتور', '${groups.length}'),
-                _summary('مجموع فروش', _displayPrice(totalSales)),
-                _summary('مجموع نسیه', _displayPrice(totalCredit),
-                    danger: true),
-              ],
-            ),
-          ),
-          const SizedBox(height: 6),
-          Expanded(
-            child: groups.isEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: const [
-                        Icon(Icons.receipt_long, size: 70, color: Colors.grey),
-                        SizedBox(height: 12),
-                        Text('هنوز فاکتوری ثبت نشده',
-                            style: TextStyle(
-                                fontSize: 17, fontWeight: FontWeight.bold)),
-                        SizedBox(height: 6),
-                        Text('برای شروع، «فاکتور جدید» را بزنید.'),
-                      ],
-                    ),
-                  )
-                : ListView(
-                    padding: const EdgeInsets.fromLTRB(12, 8, 12, 100),
-                    children: groups.entries.map((entry) {
-                      final number = entry.key;
-                      final group = entry.value;
-                      final first = group.first;
-                      final groupTotal =
-                          group.fold<int>(0, (sum, x) => sum + x.totalPrice);
-                      return Card(
-                        margin: const EdgeInsets.only(bottom: 12),
-                        elevation: 2,
-                        child: InkWell(
-                          onTap: () => widget.onViewDetails(first),
-                          borderRadius: BorderRadius.circular(12),
-                          child: Padding(
-                            padding: const EdgeInsets.all(14),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    CircleAvatar(
-                                      backgroundColor: Colors.green.shade100,
-                                      child: Text(
-                                        '$number',
-                                        style: TextStyle(
-                                          color: Colors.green.shade700,
-                                          fontWeight: FontWeight.bold,
+            const SizedBox(height: 6),
+            Expanded(
+              child: groups.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: const [
+                          Icon(Icons.receipt_long,
+                              size: 70, color: Colors.grey),
+                          SizedBox(height: 12),
+                          Text('هنوز فاکتوری ثبت نشده',
+                              style: TextStyle(
+                                  fontSize: 17, fontWeight: FontWeight.bold)),
+                          SizedBox(height: 6),
+                          Text('برای شروع، «فاکتور جدید» را بزنید.'),
+                        ],
+                      ),
+                    )
+                  : ListView(
+                      padding: const EdgeInsets.fromLTRB(12, 8, 12, 100),
+                      children: groups.entries.map((entry) {
+                        final number = entry.key;
+                        final group = entry.value;
+                        final first = group.first;
+                        final groupTotal =
+                            group.fold<int>(0, (sum, x) => sum + x.totalPrice);
+                        return Card(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          elevation: 2,
+                          child: InkWell(
+                            onTap: () {
+                              _closeKeyboard();
+                              widget.onViewDetails(first);
+                            },
+                            borderRadius: BorderRadius.circular(12),
+                            child: Padding(
+                              padding: const EdgeInsets.all(14),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      CircleAvatar(
+                                        backgroundColor: Colors.green.shade100,
+                                        child: Text(
+                                          '$number',
+                                          style: TextStyle(
+                                            color: Colors.green.shade700,
+                                            fontWeight: FontWeight.bold,
+                                          ),
                                         ),
                                       ),
-                                    ),
-                                    const SizedBox(width: 10),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            '🧾 فاکتور شماره $number',
-                                            style: const TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 16,
-                                            ),
-                                          ),
-                                          Text(
-                                            '📅 تاریخ: ${first.date}',
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              color: Colors.grey.shade600,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    IconButton(
-                                      icon: const Icon(Icons.delete_outline,
-                                          color: Colors.red),
-                                      onPressed: () =>
-                                          _deleteInvoiceGroup(number, group),
-                                    ),
-                                  ],
-                                ),
-                                const Divider(),
-                                Row(
-                                  children: [
-                                    const Icon(Icons.person_outline, size: 19),
-                                    const SizedBox(width: 6),
-                                    Expanded(
-                                      child: Text(
-                                        first.customerName.isEmpty
-                                            ? 'مشتری: نقدی / بدون نام'
-                                            : 'مشتری: ${first.customerName}',
-                                        style: const TextStyle(
-                                            fontWeight: FontWeight.w600),
-                                      ),
-                                    ),
-                                    if (first.isCredit)
-                                      const Chip(
-                                        label: Text('نسیه'),
-                                        avatar: Icon(Icons.schedule, size: 16),
-                                      ),
-                                  ],
-                                ),
-                                if (first.customerPhone.isNotEmpty) ...[
-                                  const SizedBox(height: 4),
-                                  Text('📱 موبایل: ${first.customerPhone}',
-                                      style: const TextStyle(fontSize: 13)),
-                                ],
-                                const SizedBox(height: 8),
-                                const Text('📋 اقلام فاکتور',
-                                    style:
-                                        TextStyle(fontWeight: FontWeight.bold)),
-                                const SizedBox(height: 4),
-                                ...group.map((item) => Container(
-                                      margin: const EdgeInsets.symmetric(
-                                          vertical: 3),
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 10, vertical: 8),
-                                      decoration: BoxDecoration(
-                                        color: Theme.of(context)
-                                            .colorScheme
-                                            .surfaceContainerHighest,
-                                        borderRadius: BorderRadius.circular(10),
-                                      ),
-                                      child: Row(
-                                        children: [
-                                          Expanded(
-                                              child: Text(item.productName,
-                                                  style: const TextStyle(
-                                                      fontWeight:
-                                                          FontWeight.w600))),
-                                          Text(
-                                              '${item.quantity} × ${_displayPrice(item.price)}'),
-                                          const SizedBox(width: 8),
-                                          Text(_displayPrice(item.totalPrice),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              '🧾 فاکتور شماره $number',
                                               style: const TextStyle(
-                                                  fontWeight: FontWeight.bold)),
-                                        ],
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 16,
+                                              ),
+                                            ),
+                                            Text(
+                                              '📅 تاریخ: ${first.date}',
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                color: Colors.grey.shade600,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
                                       ),
-                                    )),
-                                const Divider(),
-                                Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    const Text('💰 مجموع فاکتور',
-                                        style: TextStyle(
-                                            fontWeight: FontWeight.bold)),
-                                    Text(_displayPrice(groupTotal),
-                                        style: const TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 16)),
+                                      IconButton(
+                                        icon: const Icon(Icons.delete_outline,
+                                            color: Colors.red),
+                                        onPressed: () =>
+                                            _deleteInvoiceGroup(number, group),
+                                      ),
+                                    ],
+                                  ),
+                                  const Divider(),
+                                  Row(
+                                    children: [
+                                      const Icon(Icons.person_outline,
+                                          size: 19),
+                                      const SizedBox(width: 6),
+                                      Expanded(
+                                        child: Text(
+                                          first.customerName.isEmpty
+                                              ? 'مشتری: نقدی / بدون نام'
+                                              : 'مشتری: ${first.customerName}',
+                                          style: const TextStyle(
+                                              fontWeight: FontWeight.w600),
+                                        ),
+                                      ),
+                                      if (first.isCredit)
+                                        const Chip(
+                                          label: Text('نسیه'),
+                                          avatar:
+                                              Icon(Icons.schedule, size: 16),
+                                        ),
+                                    ],
+                                  ),
+                                  if (first.customerPhone.isNotEmpty) ...[
+                                    const SizedBox(height: 4),
+                                    Text('📱 موبایل: ${first.customerPhone}',
+                                        style: const TextStyle(fontSize: 13)),
                                   ],
-                                ),
-                              ],
+                                  const SizedBox(height: 8),
+                                  const Text('📋 اقلام فاکتور',
+                                      style: TextStyle(
+                                          fontWeight: FontWeight.bold)),
+                                  const SizedBox(height: 4),
+                                  ...group.map((item) => Container(
+                                        margin: const EdgeInsets.symmetric(
+                                            vertical: 3),
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 10, vertical: 8),
+                                        decoration: BoxDecoration(
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .surfaceContainerHighest,
+                                          borderRadius:
+                                              BorderRadius.circular(10),
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            Expanded(
+                                                child: Text(item.productName,
+                                                    style: const TextStyle(
+                                                        fontWeight:
+                                                            FontWeight.w600))),
+                                            Text(
+                                                '${item.quantity} × ${_displayPrice(item.price)}'),
+                                            const SizedBox(width: 8),
+                                            Text(_displayPrice(item.totalPrice),
+                                                style: const TextStyle(
+                                                    fontWeight:
+                                                        FontWeight.bold)),
+                                          ],
+                                        ),
+                                      )),
+                                  const Divider(),
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      const Text('💰 مجموع فاکتور',
+                                          style: TextStyle(
+                                              fontWeight: FontWeight.bold)),
+                                      Text(_displayPrice(groupTotal),
+                                          style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 16)),
+                                    ],
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-          ),
-        ],
+                        );
+                      }).toList(),
+                    ),
+            ),
+          ],
+        ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () async {
+          _closeKeyboard();
           await widget.onNewInvoice();
           if (mounted) setState(() => _invoices = List.from(widget.invoices));
         },
@@ -4902,6 +5067,8 @@ class _SalesInvoicesScreenState extends State<SalesInvoicesScreen> {
 
   Future<void> _shareSalesReport() async {
     try {
+      _closeKeyboard();
+      final font = await _loadFont();
       final pdf = pw.Document();
 
       pdf.addPage(
@@ -4924,6 +5091,7 @@ class _SalesInvoicesScreenState extends State<SalesInvoicesScreen> {
                       fontSize: 28,
                       fontWeight: pw.FontWeight.bold,
                       color: PdfColors.green,
+                      font: font,
                     ),
                   ),
                 ),
@@ -4940,34 +5108,37 @@ class _SalesInvoicesScreenState extends State<SalesInvoicesScreen> {
                       pw.Row(
                         children: [
                           pw.Text('📊 تعداد فاکتورها:',
-                              style:
-                                  pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                              style: pw.TextStyle(
+                                  fontWeight: pw.FontWeight.bold, font: font)),
                           pw.SizedBox(width: 8),
-                          pw.Text('${_invoices.length}'),
+                          pw.Text('${_invoices.length}',
+                              style: pw.TextStyle(font: font)),
                         ],
                       ),
                       pw.Row(
                         children: [
                           pw.Text('💰 مجموع فروش:',
-                              style:
-                                  pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                              style: pw.TextStyle(
+                                  fontWeight: pw.FontWeight.bold, font: font)),
                           pw.SizedBox(width: 8),
                           pw.Text('${_formatPrice(totalSales)} ریال',
                               style: pw.TextStyle(
                                   color: PdfColors.green,
-                                  fontWeight: pw.FontWeight.bold)),
+                                  fontWeight: pw.FontWeight.bold,
+                                  font: font)),
                         ],
                       ),
                       pw.Row(
                         children: [
                           pw.Text('💳 مجموع نسیه:',
-                              style:
-                                  pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                              style: pw.TextStyle(
+                                  fontWeight: pw.FontWeight.bold, font: font)),
                           pw.SizedBox(width: 8),
                           pw.Text('${_formatPrice(totalCredit)} ریال',
                               style: pw.TextStyle(
                                   color: PdfColors.orange,
-                                  fontWeight: pw.FontWeight.bold)),
+                                  fontWeight: pw.FontWeight.bold,
+                                  font: font)),
                         ],
                       ),
                     ],
@@ -4979,6 +5150,7 @@ class _SalesInvoicesScreenState extends State<SalesInvoicesScreen> {
                   style: pw.TextStyle(
                     fontSize: 18,
                     fontWeight: pw.FontWeight.bold,
+                    font: font,
                   ),
                 ),
                 pw.SizedBox(height: 10),
@@ -4994,38 +5166,38 @@ class _SalesInvoicesScreenState extends State<SalesInvoicesScreen> {
                         pw.Padding(
                           padding: const pw.EdgeInsets.all(10),
                           child: pw.Text('ردیف',
-                              style:
-                                  pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                              style: pw.TextStyle(
+                                  fontWeight: pw.FontWeight.bold, font: font)),
                         ),
                         pw.Padding(
                           padding: const pw.EdgeInsets.all(10),
                           child: pw.Text('شماره',
-                              style:
-                                  pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                              style: pw.TextStyle(
+                                  fontWeight: pw.FontWeight.bold, font: font)),
                         ),
                         pw.Padding(
                           padding: const pw.EdgeInsets.all(10),
                           child: pw.Text('کالا',
-                              style:
-                                  pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                              style: pw.TextStyle(
+                                  fontWeight: pw.FontWeight.bold, font: font)),
                         ),
                         pw.Padding(
                           padding: const pw.EdgeInsets.all(10),
                           child: pw.Text('تعداد',
-                              style:
-                                  pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                              style: pw.TextStyle(
+                                  fontWeight: pw.FontWeight.bold, font: font)),
                         ),
                         pw.Padding(
                           padding: const pw.EdgeInsets.all(10),
                           child: pw.Text('قیمت',
-                              style:
-                                  pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                              style: pw.TextStyle(
+                                  fontWeight: pw.FontWeight.bold, font: font)),
                         ),
                         pw.Padding(
                           padding: const pw.EdgeInsets.all(10),
                           child: pw.Text('مشتری',
-                              style:
-                                  pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                              style: pw.TextStyle(
+                                  fontWeight: pw.FontWeight.bold, font: font)),
                         ),
                       ],
                     ),
@@ -5036,30 +5208,37 @@ class _SalesInvoicesScreenState extends State<SalesInvoicesScreen> {
                         children: [
                           pw.Padding(
                             padding: const pw.EdgeInsets.all(10),
-                            child: pw.Text('$index'),
+                            child: pw.Text('$index',
+                                style: pw.TextStyle(font: font)),
                           ),
                           pw.Padding(
                             padding: const pw.EdgeInsets.all(10),
-                            child: pw.Text('${inv.number}'),
+                            child: pw.Text('${inv.number}',
+                                style: pw.TextStyle(font: font)),
                           ),
                           pw.Padding(
                             padding: const pw.EdgeInsets.all(10),
-                            child: pw.Text(inv.productName),
+                            child: pw.Text(inv.productName,
+                                style: pw.TextStyle(font: font)),
                           ),
                           pw.Padding(
                             padding: const pw.EdgeInsets.all(10),
-                            child: pw.Text('${inv.quantity}'),
+                            child: pw.Text('${inv.quantity}',
+                                style: pw.TextStyle(font: font)),
                           ),
                           pw.Padding(
                             padding: const pw.EdgeInsets.all(10),
-                            child:
-                                pw.Text('${_formatPrice(inv.totalPrice)} ریال'),
+                            child: pw.Text(
+                                '${_formatPrice(inv.totalPrice)} ریال',
+                                style: pw.TextStyle(font: font)),
                           ),
                           pw.Padding(
                             padding: const pw.EdgeInsets.all(10),
-                            child: pw.Text(inv.customerName.isEmpty
-                                ? 'نقدی'
-                                : inv.customerName),
+                            child: pw.Text(
+                                inv.customerName.isEmpty
+                                    ? 'نقدی'
+                                    : inv.customerName,
+                                style: pw.TextStyle(font: font)),
                           ),
                         ],
                       );
@@ -5074,6 +5253,7 @@ class _SalesInvoicesScreenState extends State<SalesInvoicesScreen> {
                     style: pw.TextStyle(
                       fontSize: 10,
                       color: PdfColors.grey,
+                      font: font,
                     ),
                   ),
                 ),
@@ -5140,7 +5320,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
     super.dispose();
   }
 
+  void _closeKeyboard() {
+    FocusScope.of(context).unfocus();
+  }
+
   Future<void> _saveSettings() async {
+    _closeKeyboard();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('dark_mode', _darkMode);
     await prefs.setString('user_name', _nameController.text);
@@ -5184,140 +5369,151 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          Card(
-            margin: const EdgeInsets.only(bottom: 16),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    '🌓 ظاهر',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  const Divider(),
-                  SwitchListTile(
-                    title: const Text('حالت تاریک (دارک مود)'),
-                    subtitle: Text(_darkMode ? 'فعال' : 'غیرفعال'),
-                    value: _darkMode,
-                    onChanged: (value) {
-                      setState(() {
-                        _darkMode = value;
-                      });
-                    },
-                    secondary: Icon(
-                      _darkMode ? Icons.dark_mode : Icons.light_mode,
-                      color: _darkMode ? Colors.white : Colors.orange,
+      body: GestureDetector(
+        onTap: _closeKeyboard,
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            Card(
+              margin: const EdgeInsets.only(bottom: 16),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      '🌓 ظاهر',
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                     ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          Card(
-            margin: const EdgeInsets.only(bottom: 16),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    '👤 اطلاعات کاربر',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  const Divider(),
-                  TextFormField(
-                    controller: _nameController,
-                    decoration: const InputDecoration(
-                      labelText: 'نام کامل',
-                      prefixIcon: Icon(Icons.person),
-                      border: OutlineInputBorder(),
+                    const Divider(),
+                    SwitchListTile(
+                      title: const Text('حالت تاریک (دارک مود)'),
+                      subtitle: Text(_darkMode ? 'فعال' : 'غیرفعال'),
+                      value: _darkMode,
+                      onChanged: (value) {
+                        setState(() {
+                          _darkMode = value;
+                        });
+                      },
+                      secondary: Icon(
+                        _darkMode ? Icons.dark_mode : Icons.light_mode,
+                        color: _darkMode ? Colors.white : Colors.orange,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
-          ),
-          Card(
-            margin: const EdgeInsets.only(bottom: 16),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    '📧 ارتباط با ما',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  const Divider(),
-                  ListTile(
-                    leading: const Icon(Icons.email, color: Colors.blue),
-                    title: const Text('ارسال ایمیل'),
-                    subtitle: const Text('rezagasem.82@gmail.com'),
-                    onTap: _sendEmail,
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.feedback, color: Colors.orange),
-                    title: const Text('ارسال پیشنهاد'),
-                    subtitle: const Text(
-                        'نظرات و پیشنهادات خود را با ما به اشتراک بگذارید'),
-                    onTap: _sendEmail,
-                  ),
-                ],
+            Card(
+              margin: const EdgeInsets.only(bottom: 16),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      '👤 اطلاعات کاربر',
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                    const Divider(),
+                    TextFormField(
+                      controller: _nameController,
+                      decoration: const InputDecoration(
+                        labelText: 'نام کامل',
+                        prefixIcon: Icon(Icons.person),
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  const Icon(Icons.apps, size: 48, color: Colors.green),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'اپلیکیشن تحویل بار و فروش',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'نسخه 2.2.0',
-                    style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'توسعه‌دهنده: رضا قاسمی',
-                    style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '📧 rezagasem.82@gmail.com',
-                    style: TextStyle(fontSize: 13, color: Colors.blue.shade700),
-                  ),
-                ],
+            Card(
+              margin: const EdgeInsets.only(bottom: 16),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      '📧 ارتباط با ما',
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                    const Divider(),
+                    ListTile(
+                      leading: const Icon(Icons.email, color: Colors.blue),
+                      title: const Text('ارسال ایمیل'),
+                      subtitle: const Text('rezagasem.82@gmail.com'),
+                      onTap: _sendEmail,
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.feedback, color: Colors.orange),
+                      title: const Text('ارسال پیشنهاد'),
+                      subtitle: const Text(
+                          'نظرات و پیشنهادات خود را با ما به اشتراک بگذارید'),
+                      onTap: _sendEmail,
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-        ],
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.apps, size: 48, color: Colors.green),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'اپلیکیشن تحویل بار و فروش',
+                      style:
+                          TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'نسخه 2.2.0',
+                      style:
+                          TextStyle(fontSize: 13, color: Colors.grey.shade600),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'توسعه‌دهنده: رضا قاسمی',
+                      style:
+                          TextStyle(fontSize: 13, color: Colors.grey.shade600),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '📧 rezagasem.82@gmail.com',
+                      style:
+                          TextStyle(fontSize: 13, color: Colors.blue.shade700),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
-// ==================== ادامه کد در پاسخ بعدی (ProductDatabaseScreen, BarcodeScannerScreen و مدل‌ها) ====================
-// ==================== صفحه بانک اطلاعاتی کالاها ====================
+// ==================== صفحه بانک اطلاعاتی کالاها با قابلیت حذف ====================
 
 class ProductDatabaseScreen extends StatefulWidget {
   final List<ProductDatabaseItem> database;
   final Function(List<ProductDatabaseItem>) onDatabaseUpdated;
+  final Function(String) onItemDeleted;
 
   const ProductDatabaseScreen({
     super.key,
     required this.database,
     required this.onDatabaseUpdated,
+    required this.onItemDeleted,
   });
 
   @override
@@ -5343,6 +5539,10 @@ class _ProductDatabaseScreenState extends State<ProductDatabaseScreen> {
         orElse: () => 'عمومی',
       );
     }
+  }
+
+  void _closeKeyboard() {
+    FocusScope.of(context).unfocus();
   }
 
   Future<void> _loadFolders() async {
@@ -5386,7 +5586,44 @@ class _ProductDatabaseScreenState extends State<ProductDatabaseScreen> {
         );
   }
 
+  void _showDeleteDialog(ProductDatabaseItem item) {
+    _closeKeyboard();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('🗑️ حذف کالا'),
+        content: Text('آیا از حذف کالا "${item.name}" مطمئن هستید؟'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('انصراف'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () {
+              setState(() {
+                _items.removeWhere((p) => p.barcode == item.barcode);
+              });
+              widget.onItemDeleted(item.barcode);
+              _notifyUpdate();
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('✅ کالا "${item.name}" حذف شد')),
+              );
+            },
+            child: const Text('حذف'),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showNewFolderDialog() {
+    _closeKeyboard();
     final controller = TextEditingController();
 
     showDialog(
@@ -5437,6 +5674,7 @@ class _ProductDatabaseScreenState extends State<ProductDatabaseScreen> {
   }
 
   void _showGuideDialog() {
+    _closeKeyboard();
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -5483,6 +5721,7 @@ class _ProductDatabaseScreenState extends State<ProductDatabaseScreen> {
 
   Future<void> _importExcel() async {
     try {
+      _closeKeyboard();
       final result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['xlsx', 'xls'],
@@ -5547,6 +5786,7 @@ class _ProductDatabaseScreenState extends State<ProductDatabaseScreen> {
 
   Future<void> _importPdf() async {
     try {
+      _closeKeyboard();
       final result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['pdf'],
@@ -5565,6 +5805,7 @@ class _ProductDatabaseScreenState extends State<ProductDatabaseScreen> {
   }
 
   void _showAddManualDialog() {
+    _closeKeyboard();
     final barcodeCtrl = TextEditingController();
     final nameCtrl = TextEditingController();
     final stockCtrl = TextEditingController();
@@ -5713,148 +5954,158 @@ class _ProductDatabaseScreenState extends State<ProductDatabaseScreen> {
           ),
         ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : Column(
-              children: [
-                Container(
-                  padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
-                  color: Theme.of(context)
-                      .colorScheme
-                      .surfaceContainerHighest
-                      .withOpacity(.65),
-                  child: Column(
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: ElevatedButton.icon(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.green,
-                                foregroundColor: Colors.white,
-                                minimumSize: const Size.fromHeight(52),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                              icon: const Icon(Icons.table_chart_outlined),
-                              label: const Text('ورود اکسل'),
-                              onPressed: _importExcel,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: OutlinedButton.icon(
-                              style: OutlinedButton.styleFrom(
-                                backgroundColor: Colors.red.shade50,
-                                foregroundColor: Colors.red.shade700,
-                                side: BorderSide(color: Colors.red.shade200),
-                                minimumSize: const Size.fromHeight(52),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                              icon: const Icon(Icons.picture_as_pdf),
-                              label: const Text('ورود PDF'),
-                              onPressed: _importPdf,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: Text(
-                          'پوشه‌ها',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: Theme.of(context).colorScheme.primary,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 7),
-                      SizedBox(
-                        height: 42,
-                        child: ListView(
-                          scrollDirection: Axis.horizontal,
+      body: GestureDetector(
+        onTap: _closeKeyboard,
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : Column(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+                    color: Theme.of(context)
+                        .colorScheme
+                        .surfaceContainerHighest
+                        .withOpacity(.65),
+                    child: Column(
+                      children: [
+                        Row(
                           children: [
-                            _folderChip('همه'),
-                            ..._folders.map(_folderChip),
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.green,
+                                  foregroundColor: Colors.white,
+                                  minimumSize: const Size.fromHeight(52),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                                icon: const Icon(Icons.table_chart_outlined),
+                                label: const Text('ورود اکسل'),
+                                onPressed: _importExcel,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                style: OutlinedButton.styleFrom(
+                                  backgroundColor: Colors.red.shade50,
+                                  foregroundColor: Colors.red.shade700,
+                                  side: BorderSide(color: Colors.red.shade200),
+                                  minimumSize: const Size.fromHeight(52),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                                icon: const Icon(Icons.picture_as_pdf),
+                                label: const Text('ورود PDF'),
+                                onPressed: _importPdf,
+                              ),
+                            ),
                           ],
                         ),
-                      ),
-                    ],
-                  ),
-                ),
-                Expanded(
-                  child: visible.isEmpty
-                      ? Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
+                        const SizedBox(height: 10),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: Text(
+                            'پوشه‌ها',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 7),
+                        SizedBox(
+                          height: 42,
+                          child: ListView(
+                            scrollDirection: Axis.horizontal,
                             children: [
-                              Icon(Icons.folder_open_outlined,
-                                  size: 64, color: Colors.grey.shade400),
-                              const SizedBox(height: 12),
-                              Text(
-                                _selectedFolder == 'همه'
-                                    ? 'بانک اطلاعاتی خالی است'
-                                    : 'این پوشه خالی است',
-                              ),
-                              const SizedBox(height: 8),
-                              ElevatedButton.icon(
-                                onPressed: _showAddManualDialog,
-                                icon: const Icon(Icons.add),
-                                label: const Text('افزودن کالا'),
-                              ),
+                              _folderChip('همه'),
+                              ..._folders.map(_folderChip),
                             ],
                           ),
-                        )
-                      : ListView.builder(
-                          padding: const EdgeInsets.all(12),
-                          itemCount: visible.length,
-                          itemBuilder: (context, index) {
-                            final item = visible[index];
-                            return Card(
-                              margin: const EdgeInsets.only(bottom: 8),
-                              child: ListTile(
-                                leading: CircleAvatar(
-                                  backgroundColor: Colors.deepPurple.shade50,
-                                  child: const Icon(Icons.inventory_2_outlined),
-                                ),
-                                title: Text(
-                                  item.name,
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.bold),
-                                ),
-                                subtitle: Text(
-                                  'پوشه: ${item.folder}\n'
-                                  'بارکد: ${item.barcode.isEmpty ? "ندارد" : item.barcode}\n'
-                                  'موجودی: ${item.stock} | خرید: ${_formatPrice(item.buyPrice)} ریال',
-                                  style: const TextStyle(fontSize: 11),
-                                ),
-                                trailing: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  crossAxisAlignment: CrossAxisAlignment.end,
-                                  children: [
-                                    const Text('قیمت فروش:',
-                                        style: TextStyle(fontSize: 10)),
-                                    Text(
-                                      '${_formatPrice(item.sellPrice)} ریال',
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.green,
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            );
-                          },
                         ),
-                ),
-              ],
-            ),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: visible.isEmpty
+                        ? Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.folder_open_outlined,
+                                    size: 64, color: Colors.grey.shade400),
+                                const SizedBox(height: 12),
+                                Text(
+                                  _selectedFolder == 'همه'
+                                      ? 'بانک اطلاعاتی خالی است'
+                                      : 'این پوشه خالی است',
+                                ),
+                                const SizedBox(height: 8),
+                                ElevatedButton.icon(
+                                  onPressed: _showAddManualDialog,
+                                  icon: const Icon(Icons.add),
+                                  label: const Text('افزودن کالا'),
+                                ),
+                              ],
+                            ),
+                          )
+                        : ListView.builder(
+                            padding: const EdgeInsets.all(12),
+                            itemCount: visible.length,
+                            itemBuilder: (context, index) {
+                              final item = visible[index];
+                              return Card(
+                                margin: const EdgeInsets.only(bottom: 8),
+                                child: ListTile(
+                                  leading: CircleAvatar(
+                                    backgroundColor: Colors.deepPurple.shade50,
+                                    child:
+                                        const Icon(Icons.inventory_2_outlined),
+                                  ),
+                                  title: Text(
+                                    item.name,
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.bold),
+                                  ),
+                                  subtitle: Text(
+                                    'پوشه: ${item.folder}\n'
+                                    'بارکد: ${item.barcode.isEmpty ? "ندارد" : item.barcode}\n'
+                                    'موجودی: ${item.stock} | خرید: ${_formatPrice(item.buyPrice)} ریال',
+                                    style: const TextStyle(fontSize: 11),
+                                  ),
+                                  trailing: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                    children: [
+                                      Text(
+                                        '${_formatPrice(item.sellPrice)} ریال',
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.green,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      IconButton(
+                                        icon: const Icon(Icons.delete_outline,
+                                            color: Colors.red, size: 20),
+                                        onPressed: () =>
+                                            _showDeleteDialog(item),
+                                        tooltip: 'حذف کالا',
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                  ),
+                ],
+              ),
+      ),
     );
   }
 
