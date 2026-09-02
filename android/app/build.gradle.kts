@@ -1,5 +1,3 @@
-import com.android.build.gradle.internal.dsl.BaseAppModuleExtension
-
 plugins {
     id("com.android.application")
     id("kotlin-android")
@@ -8,7 +6,7 @@ plugins {
 
 android {
     namespace = "com.example.last_version_test"  // ✅ نام پکیج خود را وارد کنید
-    compileSdk = 36  // ✅ SDK 36
+    compileSdk = 36
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -19,10 +17,16 @@ android {
         jvmTarget = "17"
     }
 
+    sourceSets {
+        named("main") {
+            java.srcDirs("src/main/kotlin")
+        }
+    }
+
     defaultConfig {
         applicationId = "com.example.last_version_test"  // ✅ نام پکیج خود را وارد کنید
         minSdk = 21
-        targetSdk = 36  // ✅ SDK 36
+        targetSdk = 36
         versionCode = 1
         versionName = "1.0"
     }
@@ -39,5 +43,5 @@ flutter {
 }
 
 dependencies {
-    implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version")
+    implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.9.22")
 }
